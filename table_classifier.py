@@ -34,6 +34,15 @@ def get_sheet_names(filename):
     return sheet_names
 
 
+def convert_empty_str_to_nan(table):
+    """
+    Convert all empty strings to np.NaN in a table
+    :param table: pd.DataFrame()
+    :return: pd.DataFrame()
+    """
+    return table.applymap(lambda x: x if len(x) != 0 else np.NaN)
+
+
 def clear_data_drop_int(table):
     """
     Drop numerical and empty columns in pd.DataFrame() specified by table
@@ -49,6 +58,7 @@ def clear_data_drop_int(table):
     while condition:
         try:
             dtype_ = table[i].get_dtype_counts().index
+            # dtype_ = table[i].dtypes.value_counts().index
             if ('int64' in dtype_ or 'float64' in dtype_
                     or table[i].apply(lambda x: str(x).isdigit()).sum() >= len(table) // 2):
                 columns_to_drop.append(i)
@@ -129,16 +139,15 @@ def first_classifier(table):
     `eng_t` may contain only an English transcription
     `rus` may contain a Russian word and (or) an example,
     :param table: pandas.DataFrame()
-    :return: three lists with numbers (int) of column of the table corresponging the group
+    :return: three lists with numbers (int) of column of the table corresponding the group
     """
     table = table.dropna()
     num_of_rows = len(table.index)
-    condition = True
     i = 0
     eng = []
     eng_t = []
     rus = []
-    while condition:
+    while True:
         try:
             if table[i].apply(lambda x: is_english(x)).sum() >= num_of_rows // 2:
                 eng.append(i)
@@ -150,7 +159,7 @@ def first_classifier(table):
                 eng_t.append(i)
             i += 1
         except KeyError:
-            condition = False
+            break
     return eng, rus, eng_t
 
 
@@ -276,10 +285,15 @@ def classify_group(group, table, model_filename):
     return prediction
 
 
+def drop_third_eng_column(table, eng):
+    df = table[eng].dropna().applymap(len).sum(axis=0)
+    return list(df.drop(df.idxmin()).index)
+
+
 def classify_table(table, eng_filename='finalized_model_eng.sav', rus_filename='finalized_model_rus.sav'):
     """
     The most important function in this file!
-    Figure out where is what in the table.
+    It figures out where is what in the table.
     :param table: pd.DataFrame()
     :param eng_filename: path to saved model .sav for English predictions
     :param rus_filename: path to saved model .sav for Russian predictions
@@ -288,6 +302,8 @@ def classify_table(table, eng_filename='finalized_model_eng.sav', rus_filename='
     """
     table = table.dropna()
     eng, rus, eng_t = first_classifier(table)
+    if len(eng) > 2:
+        eng = drop_third_eng_column(table, eng)
     columns_signs = {'Eng': np.NaN,
                      'engT': np.NaN,
                      'EngEx': np.NaN,

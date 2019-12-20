@@ -60,6 +60,7 @@ def prepare_table_to_export(table):
     :param table: pd.DataFrame
     :return: list, String
     """
+    table = table.fillna('')
     table = reformat_table(table)
     table_l = table.values.tolist()
     return ([item for sublist in table_l for item in sublist],

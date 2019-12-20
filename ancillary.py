@@ -1,3 +1,13 @@
+def desired_word(s):
+    i = 0
+    s = s.replace('(', '').replace(')', '')
+    new_s = ''
+    while i < len(s) and s[i] not in '-\n,.;:/\t_[{]}*+^#$!?':
+        new_s = new_s + s[i]
+        i += 1
+    return new_s.strip(' ')
+
+
 def add_newlines(text, length_of_instance):
     new_text = ""
     row = ""

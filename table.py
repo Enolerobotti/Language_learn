@@ -3,7 +3,8 @@ from math import isnan
 import pandas as pd
 
 from google_connector import reformat_table, load_table, save_table, prepare_table_to_export
-from table_classifier import excel_parser, classify_table, get_sheet_names, clear_data_drop_int
+from table_classifier import excel_parser, classify_table, get_sheet_names, clear_data_drop_int, \
+    convert_empty_str_to_nan
 
 
 def swap_columns(table):
@@ -107,6 +108,7 @@ class Table:
         table = load_table(self.google_notations['your_json_file'],
                            self.google_notations['table_name_for_import'])
         table = clear_data_drop_int(table)
+        table = convert_empty_str_to_nan(table).dropna(how='all')  # clear empty rows in Google Spreadsheets
         return swap_columns(table).applymap(lambda x: x.replace('"', "''") if isinstance(x, str) else x)
 
     def google_export(self, role='owner'):
