@@ -4,9 +4,9 @@ from tkinter import messagebox
 
 import OpenSSL
 from mysql.connector.errors import ProgrammingError, DatabaseError, InterfaceError
-from gspread.exceptions import SpreadsheetNotFound
+from gspread.exceptions import SpreadsheetNotFound, APIError
 
-from ancillary import clear_text_data, add_newlines_to_row
+from ancillary import clear_text_data, add_newlines_to_row, desired_word
 from card import CardWindowWidgets, Side
 from configs import ConfigWidgets, ExportImport
 from help_msg import get_help
@@ -36,7 +36,7 @@ class MainDriver:
         self.card = tk.Toplevel()
         self.card.protocol("WM_DELETE_WINDOW", self.cancel_test)
         self.card_window = CardWindowWidgets(master=self.card)
-        self.side_A = Side(self.card_window.side_frame, 1, True, color_bg="green yellow")
+        self.side_A = Side(self.card_window.side_frame, 2, True, color_bg="green yellow")
         self.side_B = Side(self.card_window.side_frame, 4, color_bg="gold")
         self.side_B.disable()
         self.card.withdraw()
@@ -138,6 +138,8 @@ class MainDriver:
         else:
             self.side_A.additional_instances = True
             self.side_A.e.grid()
+            self.side_A.e.focus_set()
+            self.side_A.e.bind("<Return>", self.submit_key)
             self.side_A.b.grid()
             self.side_A.add_lab.grid()
 
@@ -211,19 +213,23 @@ class MainDriver:
         if current_step > number_of_steps:
             self.card.withdraw()
             if self.side_A.additional_instances:
-                cond = (messagebox.askyesno("Test completed", "Correct answers {}. Wrong answers {}\n"
-                                                              "Would you like to export the words?".
-                                            format(self.stat_correct, self.stat_wrong)))
-
+                # cond = (messagebox.askyesno("Test completed", "Correct answers {}. Wrong answers {}\n"
+                #                                              "Would you like to export the words?".
+                #                            format(self.stat_correct, self.stat_wrong)))
+                messagebox.showinfo("Test completed", "Test completed. Thank you!\n"
+                                                      "Correct answers {}. Wrong answers {}\n".format(self.stat_correct,
+                                                                                                      self.stat_wrong))
             else:
-                cond = messagebox.askyesno("Test completed", "Test completed\n"
-                                                             "Would you like to export the words?")
-            if cond:
-                self.ei_dialog.flag_export = True
-                self.ei_dialog.set_title()
-                self.ei.deiconify()
-            else:
-                self.close_cards()
+                # cond = messagebox.askyesno("Test completed", "Test completed\n"
+                #                                             "Would you like to export the words?")
+                messagebox.showinfo("Test completed", "Test completed. Thank you!")
+            # if cond:
+            #    self.ei_dialog.flag_export = True
+            #    self.ei_dialog.set_title()
+            #    self.ei.deiconify()
+            # else:
+            #    self.close_cards()
+            self.close_cards()
         else:
             self.card_window.set_label_value(current_step, number_of_steps)
             self.current_row = next(self.rows)
@@ -269,17 +275,25 @@ class MainDriver:
     # SideA button's command
     def submit(self):
         self.submit_flag = True
-        true_eng_word = self.current_row[0].lower()
+        true_eng_word = desired_word(self.current_row[0].lower())
         user_eng_word = self.side_A.e.get().lower().strip(" ")
         if true_eng_word == user_eng_word:
             self.side_A.additional_val_label.set("Correct! Well done!")
             self.stat_correct += 1
         else:
-            self.side_A.additional_val_label.set("Incorrect!. Please try again.")
+            self.side_A.additional_val_label.set("Incorrect! Please try again.")
             self.stat_wrong += 1
 
+    def submit_key(self, event):
+        self.submit()
+        # default_bg = self.side_A.b.cget('bg')
+        # self.side_A.b.config(bg='gray90')
+        # self.side_A.after(1000, lambda: self.side_A.b.config(bg=default_bg))
+        self.side_A.b.config(relief='sunken')
+        self.side_A.after(500, lambda: self.side_A.b.config(relief='raised'))
+
     def update_side_a_label(self):
-        self.side_A.additional_val_label.set("Try to enter the word in the text field above")
+        self.side_A.additional_val_label.set("Please enter the word in the text field above")
         self.side_A.e.delete(0, tk.END)
 
     # config window button's commands
@@ -421,6 +435,7 @@ class MainDriver:
         if self.main_window.rb1.v.get() == 0 and self.main_window.rb3.v.get() == 0:
             # return 0  # Words, Eng->Rus
             self.side_A.val_label[0].set(row[0])
+            self.side_A.val_label[1].set('')
 
             # "Translation"
             self.side_B.val_label[0].set(row[3])
@@ -434,10 +449,11 @@ class MainDriver:
         elif self.main_window.rb1.v.get() == 1 and self.main_window.rb3.v.get() == 0:
             # return 1  # Phrases, Eng->Rus
             self.side_A.val_label[0].set(row[2])
+            self.side_A.val_label[1].set('')
 
             # "Translation"
             self.side_B.val_label[0].set(row[4])
-#            self.side_B.val_label[2].set("English word")
+            #            self.side_B.val_label[2].set("English word")
             self.side_B.val_label[1].set(row[0])
             # "Transcription"
             self.side_B.val_label[2].set(row[1])
@@ -448,6 +464,7 @@ class MainDriver:
               and not self.main_window.rb3.ch.get_ch_value()):
             # return 2  # Words, Rus->Eng
             self.side_A.val_label[0].set(row[3])
+            self.side_A.val_label[1].set('')
 
             # "Translation"
             self.side_B.val_label[0].set(row[0])
@@ -462,6 +479,7 @@ class MainDriver:
               and self.main_window.rb3.ch.get_ch_value()):
             # return 3  # Words, Rus->Eng, spell checker enabled
             self.side_A.val_label[0].set(row[3])
+            self.side_A.val_label[1].set('')
 
             # "Translation"
             self.side_B.val_label[0].set(row[0])
@@ -476,6 +494,7 @@ class MainDriver:
               and not self.main_window.rb3.ch.get_ch_value()):
             # return 4  # Phrases, Rus->Eng
             self.side_A.val_label[0].set(row[4])
+            self.side_A.val_label[1].set('')
 
             # "Translation"
             self.side_B.val_label[0].set(row[2])
@@ -490,6 +509,7 @@ class MainDriver:
               and self.main_window.rb3.ch.get_ch_value()):
             # return 5  # Phrases, Rus->Eng, spell checker enabled
             self.side_A.val_label[0].set(row[4])
+            self.side_A.val_label[1].set(row[3])
 
             # "Translation"
             self.side_B.val_label[0].set(row[2])
@@ -519,12 +539,16 @@ class MainDriver:
         flag = True
         table = None
         if self.ei_dialog.rb.v.get() == 1 and self.ei_dialog.flag_export:
-            self.table.update_google_notations(self.conf_window.google_frame.notations)
-            num_of_words = self.table.google_export()
-            msg = ("Congrats! {} rows have been written in "
-                   " {} to account {}").format(num_of_words,
-                                               self.table.google_notations["table_name_for_export"],
-                                               self.table.google_notations["user_email"])
+            try:
+                self.table.update_google_notations(self.conf_window.google_frame.notations)
+                num_of_words = self.table.google_export()
+                msg = ("Congrats! {} rows have been written in "
+                       " {} to account {}").format(num_of_words,
+                                                   self.table.google_notations["table_name_for_export"],
+                                                   self.table.google_notations["user_email"])
+            except APIError as e:
+                messagebox.showerror("APIError", e)
+                flag = False
         elif self.ei_dialog.rb.v.get() == 2 and self.ei_dialog.flag_export:
             self.table.update_excel_notations(self.conf_window.excel_frame.notations)
             try:
